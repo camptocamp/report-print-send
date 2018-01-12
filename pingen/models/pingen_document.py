@@ -4,15 +4,14 @@
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
 
 import logging
-
+from requests.exceptions import ConnectionError
 from cStringIO import StringIO
 
-# from contextlib import closing
+import odoo
 from odoo import models, fields, _
 from odoo.exceptions import UserError
-import odoo
-from .pingen import APIError, pingen_datetime_to_utc
-from requests.exceptions import ConnectionError
+from .pingen import APIError, pingen_datetime_to_utc, POST_SENDING_STATUS
+
 
 _logger = logging.getLogger(__name__)
 
@@ -257,12 +256,11 @@ class PingenDocument(models.Model):
 
         except BaseException as e:
             _logger.exception(
-                'Unexcepted Error when updating the ' +
-                'status of pingen.document %s: ' %
-                self.id)
+                'Unexpected Error when updating the status '
+                'of pingen.document %s: ' % self.id)
             raise UserError(
-                _('Unexcepted Error when updating the ' +
-                  'status of Document %s') % self.name)
+                _('Unexpected Error when updating the status '
+                  'of Document %s') % self.name)
         return True
 
     def _update_post_infos(self, pingen):
@@ -286,19 +284,15 @@ class PingenDocument(models.Model):
                 'Pingen Document %s to %s.' %
                 (self.id, pingen.url))
             raise
-        # currency_ids = self.env['res.currency'].search(
-        #     [('name', '=', post_infos['currency'])])
         country = self.env['res.country'].search(
             [('code', '=', post_infos['country'])])
         send_date = pingen_datetime_to_utc(post_infos['date'])
         vals = {
-            # 'post_status': POST_SENDING_STATUS[post_infos['status']],
-            # 'cost': post_infos['cost'],
-            # 'currency_id': currency_ids[0] if currency_ids else False,
+            'post_status': POST_SENDING_STATUS[post_infos['status']],
             'parsed_address': post_infos['address'],
-            'country_id': country.id if country else False,
+            'country_id': country.id,
             'send_date': fields.Datetime.to_string(send_date),
-            # 'pages': post_infos['pages'],
+            'pages': post_infos['pages'],
             'last_error_message': False,
             }
         if pingen.is_posted(post_infos):
@@ -339,26 +333,22 @@ class PingenDocument(models.Model):
         instance) for public interface.
         """
         self.ensure_one()
-        for document in self:
-            try:
-                session = document._get_pingen_session()
-                document._update_post_infos(pingen=session)
-            except ConnectionError as e:
-                raise UserError(
-                    _('Connection Error when updating ' +
-                      'the status of Document %s'
-                      ' from Pingen') % document.name)
-            except APIError as e:
-                raise UserError(
-                    _('Error when updating the status ' +
-                      'of Document %s from Pingen: '
-                      '\n%s') % (document.name, e))
-            except BaseException as e:
-                _logger.exception(
-                    'Unexcepted Error when updating ' +
-                    'the status of pingen.document %s: ' %
-                    document.id)
-                raise UserError(
-                    _('Unexcepted Error when updating ' +
-                      'the status of Document %s') % document.name)
+        try:
+            session = self._get_pingen_session()
+            self._update_post_infos(pingen=session)
+        except ConnectionError as e:
+            raise UserError(
+                _('Connection Error when updating the status '
+                  'of Document %s from Pingen') % self.name)
+        except APIError as e:
+            raise UserError(
+                _('Error when updating the status of Document %s from '
+                  'Pingen: \n%s') % (self.name, e))
+        except BaseException as e:
+            _logger.exception(
+                'Unexpected Error when updating the status '
+                'of pingen.document %s: ' % self.id)
+            raise UserError(
+                _('Unexpected Error when updating the status '
+                  'of Document %s') % self.name)
         return True
