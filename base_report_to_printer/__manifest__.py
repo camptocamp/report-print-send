@@ -17,6 +17,7 @@
     'data': [
         'data/printing_data.xml',
         'security/security.xml',
+        'security/ir.model.access.csv',
         'views/assets.xml',
         'views/printing_printer.xml',
         'views/printing_server.xml',
