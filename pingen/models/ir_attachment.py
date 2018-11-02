@@ -73,7 +73,7 @@ class IrAttachment(models.Model):
             attachment._handle_pingen_document()
         return attachment
 
-    @api.model
+    @api.multi
     def write(self, vals):
         res = super(IrAttachment, self).write(vals)
         if 'send_to_pingen' in vals:
