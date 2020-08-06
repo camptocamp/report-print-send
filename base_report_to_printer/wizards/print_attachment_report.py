@@ -1,9 +1,8 @@
-# -*- coding: utf-8 -*-
 # Copyright 2020 Camptocamp SA
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl)
 import base64
 
-from openerp import _, models, api, fields
+from odoo import _, models, api, fields
 
 
 class PrintAttachment(models.TransientModel):
