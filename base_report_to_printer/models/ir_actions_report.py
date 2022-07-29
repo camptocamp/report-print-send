@@ -41,12 +41,19 @@ class IrActionsReport(models.Model):
         self.printer_tray_id = False
 
     @api.model
-    def print_action_for_report_name(self, report_name):
+    def _get_report_from_id(self, report_id):
+        report_obj = self.env["ir.actions.report"]
+        conditions = [("id", "=", report_id)]
+        context = self.env["res.users"].context_get()
+        return report_obj.with_context(context).sudo().search(conditions, limit=1)
+
+    @api.model
+    def print_action_for_report(self, report_id):
         """Returns if the action is a direct print or pdf
 
         Called from js
         """
-        report = self._get_report_from_name(report_name)
+        report = self._get_report_from_id(report_id)
         if not report:
             return {}
         result = report.behaviour()
@@ -115,7 +122,7 @@ class IrActionsReport(models.Model):
         behaviour = self.behaviour()
         printer = behaviour.pop("printer", None)
 
-        if not printer:
+        if not printer and self.property_printing_action_id.action_type != "client":
             raise exceptions.UserError(_("No printer configured to print this report."))
         if self.print_report_name:
             report_file_names = [
