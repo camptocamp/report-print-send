@@ -160,5 +160,6 @@ class TestReport(common.HttpCase):
 
     def test_print_document_no_printer(self):
         """It should raise an error"""
+        self.report.property_printing_action_id.action_type = "server"
         with self.assertRaises(exceptions.UserError):
             self.report.print_document(self.partners.ids)
