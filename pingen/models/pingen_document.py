@@ -158,7 +158,7 @@ class PingenDocument(models.Model):
             state = 'pingen_error'
             error_msg = _('Error when pushing the document %s to Pingen:\n%s') % (self.name, e)
         except Exception as e:
-            error_msg = _('Unexpected Error when pushing the document %s to Pingen:\n'%s) % (self.name, e)
+            error_msg = _('Unexpected Error when pushing the document %s to Pingen:\n%s') % (self.name, e)
             _logger.exception(error_msg)
         finally:
             if error_msg:
