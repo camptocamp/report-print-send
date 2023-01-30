@@ -5,10 +5,10 @@
 import json
 import logging
 from datetime import datetime
+from urllib.parse import urljoin
 
 import pytz
 import requests
-import urlparse
 from dateutil import parser
 from oauthlib.oauth2 import BackendApplicationClient
 from requests_oauthlib import OAuth2Session
@@ -111,8 +111,9 @@ class Pingen(object):
 
     def _fetch_token(self):
         # TODO: Handle scope 'letter' only?
-        token_url = urlparse.urljoin(self.identity_url, self.token_url)
-        # FIXME: requests.exceptions.SSLError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed (_ssl.c:581)
+        token_url = urljoin(self.identity_url, self.token_url)
+        # FIXME: requests.exceptions.SSLError: [SSL: CERTIFICATE_VERIFY_FAILED]
+        # certificate verify failed (_ssl.c:581)
         #  without verify=False parameter on prod/staging
         _logger.debug("Fetching new token from %s" % token_url)
         return self._session.fetch_token(
@@ -161,7 +162,7 @@ class Pingen(object):
         if self._is_token_expired():
             self._set_session_header_token()
 
-        p_url = urlparse.urljoin(self.api_url, endpoint)
+        p_url = urljoin(self.api_url, endpoint)
 
         if endpoint == "document/get":
             complete_url = "{}{}{}{}{}".format(
@@ -196,7 +197,7 @@ class Pingen(object):
     def upload_file(self, url, multipart, content_type):
         _logger.debug("Uploading new file")
         response = requests.put(
-            url, data=multipart, headers={"Content-Type": content_type}
+            url, data=multipart, headers={"Content-Type": content_type}, timeout=30
         )
         return response
 

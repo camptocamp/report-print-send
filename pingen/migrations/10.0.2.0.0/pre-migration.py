@@ -84,6 +84,7 @@ def migrate_to_api_v2_field(
         migrate_data(env.cr, table_name, old_field_definition, new_field_definition)
 
 
+# pylint: disable=W0102
 def move_and_migrate_to_api_v2_field(
     env,
     old_model_table,
@@ -147,6 +148,7 @@ def migrate_data(cr, table_name, old_field_definition, new_field_definition):
     logged_query(cr, query)
 
 
+# pylint: disable=W0102
 def move_and_migrate_data(
     cr,
     old_table,
