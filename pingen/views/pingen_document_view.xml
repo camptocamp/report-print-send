@@ -53,7 +53,7 @@
                         string="Update the letter's informations"
                         icon="fa-refresh"
                     />
-          <field
+        <field
                         name="state"
                         widget="statusbar"
                         statusbar_visible="pending,pushed,sent"
@@ -162,7 +162,6 @@
     <field name="type">search</field>
     <field name="arch" type="xml">
       <search>
-<!--    FIXME: Invalid view pingen.document.search definition in pingen/views/pingen_document_view.xml
         <filter name="pending" string="Pending" domain="[('state','=','pending')]" />
         <filter name="pushed" string="Pushed" domain="[('state','=','pushed')]" />
         <filter
@@ -170,8 +169,8 @@
                     string="In Sendcenter"
                     domain="[('state','=','sendcenter')]"
                 />
-        <filter icon="kanban-apply" string="Sent" domain="[('state','=','sent')]" />
-        <filter icon="kanban-stop" string="Error" domain="[('state','=','error')]" />
+        <filter name="sent" string="Sent" domain="[('state','=','sent')]" />
+        <filter name="error" string="Error" domain="[('state','=','error')]" />
         <filter
                     name="error"
                     string="Pingen Error"
@@ -183,7 +182,7 @@
                     domain="[('state','=','canceled')]"
                 />
         <separator orientation="vertical" />
-        <field name="attachment_id" /> -->
+        <field name="attachment_id" />
       </search>
     </field>
   </record>
