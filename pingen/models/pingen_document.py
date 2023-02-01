@@ -3,7 +3,7 @@
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
 
 import logging
-from io import BytesIO as stringIO
+from io import StringIO
 from itertools import groupby
 
 from oauthlib.oauth2.rfc6749.errors import OAuth2Error
@@ -116,7 +116,7 @@ class PingenDocument(models.Model):
         try:
             doc_id, post_id, infos = pingen.push_document(
                 self.name,
-                stringIO(decoded_document),
+                StringIO(decoded_document),
                 self.attachment_id.mimetype,
                 self.auto_send,
                 self.delivery_product,
