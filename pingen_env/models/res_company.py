@@ -30,7 +30,13 @@ class ResCompany(models.Model):
         global_section_name = "pingen"
         for company in self:
             # default vals
-            config_vals = {}
+            config_vals = {
+                "pingen_clientid": "",
+                "pingen_client_secretid": "",
+                "pingen_organization": "",
+                "pingen_staging":False,
+                "pingen_webhook_secret": "",
+            }
             if serv_config.has_section(global_section_name):
                 config_vals.update(serv_config.items(global_section_name))
             custom_section_name = global_section_name + "." + company.name
