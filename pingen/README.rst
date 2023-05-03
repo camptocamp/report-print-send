@@ -18,20 +18,17 @@ Scope of the integration
 One can decide, per document / attachment, if it should be pushed
 to pingen.com. The documents are pushed asynchronously.
 
-A second cron updates the informations of the documents from pingen.com, so we
-know which of them have been sent.
+The informations of the documents from pingen.com are updated through webhook calls.
 
 Configuration
 =============
 
-The authentication token is configured on the company's view. You can also
-tick a checkbox if the staging environment (https://stage-api.pingen.com)
-should be used.
+The authentication token, client ID, organization ID and webhook secret is configured 
+on the company's view. You can also tick a checkbox if the staging environment 
+(https://stage-api.pingen.com) should be used.
 
-The setup of the 2 crons can be changed as well:
+Webhooks should be configured on pingen account. Organization ID and webhook secret must match.
 
- * Run Pingen Document Push
- * Run Pingen Document Update
 
 Usage
 =====
