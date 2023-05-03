@@ -10,6 +10,6 @@ def post_init_hook(cr, registry):
         pingen_client_secretid = NULL,
         pingen_organization = NULL,
         pingen_staging = NULL,
-        pingen_webhook_secret = NULL
+        pingen_webhook_secret = NULL;
         """
     )

@@ -34,7 +34,7 @@ class ResCompany(models.Model):
                 "pingen_clientid": "",
                 "pingen_client_secretid": "",
                 "pingen_organization": "",
-                "pingen_staging":False,
+                "pingen_staging": True,
                 "pingen_webhook_secret": "",
             }
             if serv_config.has_section(global_section_name):

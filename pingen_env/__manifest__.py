@@ -8,11 +8,9 @@
     "license": "AGPL-3",
     "category": "Reporting",
     "complexity": "easy",
-    "depends": ["pingen", "server_environment", "base_setup"],
+    "depends": ["pingen", "server_environment"],
     "website": "https://github.com/OCA/report-print-send",
-    "data": [
-        "views/base_config_views.xml",
-    ],
+    "data": [],
     "post_init_hook": "post_init_hook",
     "installable": True,
     "auto_install": False,
