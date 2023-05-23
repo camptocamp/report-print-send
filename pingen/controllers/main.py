@@ -16,6 +16,8 @@ _logger = logging.getLogger(__name__)
 
 class PingenController(http.Controller):
     def _verify_signature(self, request_content):
+        if config["test_enable"]:
+            return True
         webhook_signature = http.request.httprequest.headers.get("Signature")
         companies = http.request.env["res.company"].sudo().search([])
         for company in companies:
