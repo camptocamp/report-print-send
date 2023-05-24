@@ -7,12 +7,11 @@ import json
 from vcr import VCR
 from os.path import dirname, join
 from odoo.tests import tagged
-from odoo import Command
 from ..controllers.main import PingenController
 from odoo.tests.common import HttpCase
 from unittest.mock import patch
 from odoo.addons.website.tools import MockRequest
-
+from freezegun import freeze_time
 
 vcr_pingen = VCR(
 		record_mode='all',
@@ -33,44 +32,11 @@ class TestPingen(HttpCase):
 	def setUpClass(cls):
 		super().setUpClass()
 		cls.company = cls.env.user.company_id
-		cls.report_layout = cls.env.ref('web.report_layout_standard')
-		cls.company.external_report_layout_id = cls.report_layout.view_id.id,
-
 		cls.company.pingen_clientid = '1234'
 		cls.company.pingen_client_secretid = '1234567893'
 		cls.company.pingen_organization = '4c08c24e-65f8-47cf-b280-518ee76e3437'
 		cls.company.pingen_staging = True
 
-		### invoice record
-		cls.partner_a = cls.env["res.partner"].create({
-			'name':'Pingen Partner',
-			'street':'Blumenstrasse 100',
-			'zip':8134,
-			'city':'Adliswil',
-			'country_id': cls.env.ref('base.ch').id
-		})
-
-		uom_unit = cls.env.ref("uom.product_uom_unit")
-		cls.product_a = cls.env["product.product"].create({
-			"name": "product TEST",
-			"standard_price": 100.0,
-			#"type": "product",
-			"uom_id": uom_unit.id,
-			"default_code": "A",
-		})
-
-		cls.invoice = cls.env['account.move'].create([{
-			'move_type': 'out_invoice',
-			'partner_id': cls.partner_a.id,
-			'date': '2023-02-01',
-			'invoice_date': '2023-02-01',
-			'invoice_line_ids': [Command.create({
-				'product_id': cls.product_a.id,
-				'price_unit': 20.0,
-			})]
-		}])
-
-		cls.invoice.action_post()
 		cls.pc = PingenController()
 
 	def get_request_json(self,uuid):
@@ -192,6 +158,7 @@ class TestPingen(HttpCase):
 
 
 	@vcr_pingen.use_cassette
+	@freeze_time('2023-05-19')
 	def test_pingen_push_document(self):
 
 		session = self.company._get_pingen_client()
