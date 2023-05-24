@@ -8,6 +8,7 @@ import logging
 import werkzeug
 
 from odoo import http
+from odoo.tools import config
 
 from ..models.pingen import pingen_datetime_to_utc
 
@@ -21,7 +22,8 @@ class PingenController(http.Controller):
         webhook_signature = http.request.httprequest.headers.get("Signature")
         companies = http.request.env["res.company"].sudo().search([])
         for company in companies:
-            # We could not search on `pingen_webhook_secret if this field is computed (e.g. env field)
+            # We could not search on `pingen_webhook_secret
+            # if this field is computed (e.g. env field)
             if not company.pingen_webhook_secret:
                 continue
             secret_signature = hmac.new(
