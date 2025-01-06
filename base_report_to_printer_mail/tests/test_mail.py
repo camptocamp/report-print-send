@@ -56,7 +56,7 @@ class TestMail(HttpCase):
                 "body_html": "<p>Dear ${object.name}, "
                 "your parent is ${object.parent_id and "
                 'object.parent_id.name or "False"}</p>',
-                "report_template": self.report.id,
+                "report_template_ids": [(4, self.report.id)],
             }
         )
 
@@ -89,9 +89,9 @@ class TestMail(HttpCase):
             "printing_printer.PrintingPrinter."
             "print_document"
         ) as print_document:
-            self.email_template.generate_email(
-                self.test_partner.id,
-                fields=[
+            self.email_template._generate_template(
+                [self.test_partner.id],
+                render_fields=[
                     "name",
                     "email_from",
                     "email_to",
