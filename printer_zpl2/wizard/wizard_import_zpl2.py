@@ -9,7 +9,7 @@ import re
 
 from PIL import Image, ImageOps
 
-from odoo import _, fields, models
+from odoo import fields, models
 
 from ..models import zpl2
 
@@ -345,7 +345,9 @@ class WizardImportZPl2(models.TransientModel):
     _description = "Import ZPL2"
 
     label_id = fields.Many2one(
-        comodel_name="printing.label.zpl2", string="Label", required=True, readonly=True
+        comodel_name="printing.label.zpl2",
+        string="Label",
+        required=True,
     )
     data = fields.Text(required=True, help="Printer used to print the labels.")
     delete_component = fields.Boolean(
@@ -395,7 +397,7 @@ class WizardImportZPl2(models.TransientModel):
                 seq = sequence + i * 10
                 vals.update(
                     {
-                        "name": _("Import %s") % seq,
+                        "name": self.env._("Import %s") % seq,
                         "sequence": seq,
                         "model": str(zpl2.MODEL_ENHANCED),
                         "label_id": self.label_id.id,
