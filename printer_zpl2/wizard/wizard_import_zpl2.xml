@@ -7,7 +7,7 @@
             <form string="Print Label">
                 <group>
                     <group>
-                        <field name="label_id" />
+                        <field name="label_id" readonly="1" />
                         <field name="delete_component" />
                     </group>
                 </group>
