@@ -5,7 +5,7 @@
     "name": "pingen.com server environment",
     "version": "16.0.1.0.0",
     "author": "Camptocamp,Odoo Community Association (OCA)",
-    "maintainers": ["ajaniszewska-dev"],
+    "maintainers": ["ajaniszewska-dev", "grindtildeath"],
     "license": "AGPL-3",
     "category": "Reporting",
     "complexity": "easy",
