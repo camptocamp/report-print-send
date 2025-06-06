@@ -16,6 +16,7 @@ class ResCompany(models.Model):
     pingen_organization = fields.Char("Pingen organization ID")
     pingen_webhook_secret = fields.Char()
     pingen_staging = fields.Boolean()
+    pingen_ssl_verify = fields.Boolean(default=True)
 
     def _pingen(self):
         """Return a Pingen instance to work on"""
