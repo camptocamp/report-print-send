@@ -474,6 +474,8 @@ class WizardImportZPl2(models.TransientModel):
         # Graphics are downloaded once (~DG) and recalled by name (^XG)
         graphics, data = _download_graphics(self.data)
 
+        self._import_label_settings(data)
+
         # A component is delimited by the field separator (^FS, or its SI
         # control code), whatever the line breaks in between: label designers
         # usually generate one command per line. As printers do, also start a
@@ -527,6 +529,18 @@ class WizardImportZPl2(models.TransientModel):
                     }
                 )
                 Zpl2Component.create(vals)
+
+    def _import_label_settings(self, data):
+        """Set the label home (^LH) and print width (^PW) on the label"""
+        vals = {}
+        match = re.search(r"\^LH(\d+),(\d+)", data)
+        if match:
+            vals["origin_x"], vals["origin_y"] = map(int, match.groups())
+        match = re.search(r"\^PW(\d+)", data)
+        if match:
+            vals["width"] = int(match.group(1))
+        if vals:
+            self.label_id.write(vals)
 
     def _update_vals(self, vals):
         if "orientation" in vals.keys() and vals["orientation"] == "":

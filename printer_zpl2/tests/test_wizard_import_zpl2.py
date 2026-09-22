@@ -262,3 +262,19 @@ class TestWizardImportZpl2(PrinterZpl2Common):
         # The font defaults are kept alongside the orientation default
         self.assertEqual(components[1].height, 20)
         self.assertEqual(components[3].height, 40)
+
+    def test_wizard_import_zpl2_label_settings(self):
+        """The label home (^LH) and print width (^PW) are set on the label"""
+        self.label.write({"origin_x": 10, "origin_y": 10, "width": 480})
+        zpl_data = "^XA\n^PW949\n^LH20,30\n^FO10,10^A0N,30,30^FDTEXT^FS\n^XZ"
+        vals = {"label_id": self.label.id, "delete_component": True, "data": zpl_data}
+        wizard = self.env["wizard.import.zpl2"].create(vals)
+        wizard.import_zpl2()
+        self.assertEqual((self.label.origin_x, self.label.origin_y), (20, 30))
+        self.assertEqual(self.label.width, 949)
+        # Kept when the imported data does not set them
+        zpl_data = "^XA\n^FO10,10^A0N,30,30^FDTEXT^FS\n^XZ"
+        wizard = self.env["wizard.import.zpl2"].create(dict(vals, data=zpl_data))
+        wizard.import_zpl2()
+        self.assertEqual((self.label.origin_x, self.label.origin_y), (20, 30))
+        self.assertEqual(self.label.width, 949)
