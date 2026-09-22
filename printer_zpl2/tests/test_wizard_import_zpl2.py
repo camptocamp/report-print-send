@@ -73,7 +73,11 @@ class TestWizardImportZpl2(PrinterZpl2Common):
         self.assertEqual(2, len(self.label.component_ids))
 
     def test_wizard_import_zpl2_downloaded_graphic(self):
-        """Import a label with a downloaded graphic (~DG) recalled by ^XG"""
+        """Import a label with a downloaded graphic (~DG) recalled by ^XG
+
+        Label designers generate one command per line and store the images
+        as compressed graphics, recalled by name in the label.
+        """
         # 16x2 bitmap: a black line above a white one
         bitmap = b"\xff\xff\x00\x00"
         z64 = base64.b64encode(zlib.compress(bitmap)).decode()
@@ -82,9 +86,17 @@ class TestWizardImportZpl2(PrinterZpl2Common):
             f"~DGR:SSGFX000.GRF,4,2,:Z64:{z64}:0000\n"
             "^XZ\n"
             "^XA\n"
-            "^FO538,535^BY4^BEN,94,Y,N^FD761050886653^FS\n"
-            "^FO12,77^XGR:SSGFX000.GRF,2,3^FS\n"
-            "^FO10,10^XGR:MISSING.GRF,1,1^FS\n"
+            "^FO538,535\n"
+            "^BY4\n"
+            "^BEN,94,Y,N\n"
+            "^FD761050886653\n"
+            "^FS\n"
+            "^FO12,77\n"
+            "^XGR:SSGFX000.GRF,2,3\n"
+            "^FS\n"
+            "^FO10,10\n"
+            "^XGR:MISSING.GRF,1,1\n"
+            "^FS\n"
             "^PQ1,0,1,Y\n"
             "^XZ\n"
             "^XA\n"
@@ -138,3 +150,23 @@ class TestWizardImportZpl2(PrinterZpl2Common):
             self.assertEqual(image.size, (16, 3))
             self.assertEqual(image.getpixel((9, 2)), 0)
             self.assertEqual(image.getpixel((10, 2)), 255)
+
+    def test_wizard_import_zpl2_field_separator(self):
+        """A field ends at ^FS, at its SI control code, or at the next field
+        origin when the separator is missing"""
+        zpl_data = (
+            "^XA\n"
+            "^FO10,10^A0N,30,30^FDFIRST^FS^FO10,50^A0N,30,30^FDSECOND\x0f\n"
+            "^FO10,90^A0N,30,30^FDTHIRD\n"
+            "^FO10,130^A0N,30,30^FDFOURTH\n"
+            "^XZ"
+        )
+        vals = {"label_id": self.label.id, "delete_component": True, "data": zpl_data}
+        wizard = self.env["wizard.import.zpl2"].create(vals)
+        wizard.import_zpl2()
+        components = self.label.component_ids.sorted("sequence")
+        self.assertEqual(
+            components.mapped("data"), ['"FIRST"', '"SECOND"', '"THIRD"', '"FOURTH"']
+        )
+        self.assertEqual(components.mapped("origin_y"), [10, 50, 90, 130])
+        self.assertEqual(set(components.mapped("component_type")), {"text"})

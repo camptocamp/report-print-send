@@ -422,10 +422,16 @@ class WizardImportZPl2(models.TransientModel):
         # Graphics are downloaded once (~DG) and recalled by name (^XG)
         graphics, data = _download_graphics(self.data)
 
-        for i, line in enumerate(data.split("\n")):
+        # A component is delimited by the field separator (^FS, or its SI
+        # control code), whatever the line breaks in between: label designers
+        # usually generate one command per line. As printers do, also start a
+        # new field at each field origin (^FO, ^FT) when the separator is
+        # missing.
+        data = data.replace("\x0f", "^FS")
+        for i, field in enumerate(re.split(r"\^FS|(?=\^F[OT])", data)):
             vals = {}
 
-            args = line.split("^")
+            args = re.split(r"[\^\r\n]", field)
             for arg in args:
                 for _key, code in SUPPORTED_CODE.items():
                     component_arg = code["method"](arg)
