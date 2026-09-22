@@ -170,3 +170,20 @@ class TestWizardImportZpl2(PrinterZpl2Common):
         )
         self.assertEqual(components.mapped("origin_y"), [10, 50, 90, 130])
         self.assertEqual(set(components.mapped("component_type")), {"text"})
+
+    def test_wizard_import_zpl2_diagonal_line(self):
+        """Import diagonal lines (^GD)"""
+        zpl_data = "^XA\n^FO10,20^GD100,50,3,B,R^FS\n^FO30,40^GD60,60,2^FS\n^XZ"
+        vals = {"label_id": self.label.id, "delete_component": True, "data": zpl_data}
+        wizard = self.env["wizard.import.zpl2"].create(vals)
+        wizard.import_zpl2()
+        right, left = self.label.component_ids.sorted("sequence")
+        self.assertEqual(set((right + left).mapped("component_type")), {"diagonal"})
+        self.assertEqual((right.origin_x, right.origin_y), (10, 20))
+        self.assertEqual((right.width, right.height, right.thickness), (100, 50, 3))
+        self.assertEqual(right.color, "B")
+        self.assertEqual(right.diagonal_orientation, "R")
+        self.assertEqual((left.width, left.height, left.thickness), (60, 60, 2))
+        # Defaults of the omitted arguments
+        self.assertEqual(left.color, "B")
+        self.assertEqual(left.diagonal_orientation, "L")
