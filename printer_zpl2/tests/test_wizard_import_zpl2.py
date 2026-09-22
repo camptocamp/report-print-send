@@ -1,6 +1,12 @@
 # Copyright (C) 2018 Florent de Labarre (<https://github.com/fmdl>)
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl.html).
 
+import base64
+import io
+import zlib
+
+from PIL import Image
+
 from .common import PrinterZpl2Common
 
 
@@ -65,3 +71,70 @@ class TestWizardImportZpl2(PrinterZpl2Common):
         wizard = self.env["wizard.import.zpl2"].create(vals)
         wizard.import_zpl2()
         self.assertEqual(2, len(self.label.component_ids))
+
+    def test_wizard_import_zpl2_downloaded_graphic(self):
+        """Import a label with a downloaded graphic (~DG) recalled by ^XG"""
+        # 16x2 bitmap: a black line above a white one
+        bitmap = b"\xff\xff\x00\x00"
+        z64 = base64.b64encode(zlib.compress(bitmap)).decode()
+        zpl_data = (
+            "^XA\n"
+            f"~DGR:SSGFX000.GRF,4,2,:Z64:{z64}:0000\n"
+            "^XZ\n"
+            "^XA\n"
+            "^FO538,535^BY4^BEN,94,Y,N^FD761050886653^FS\n"
+            "^FO12,77^XGR:SSGFX000.GRF,2,3^FS\n"
+            "^FO10,10^XGR:MISSING.GRF,1,1^FS\n"
+            "^PQ1,0,1,Y\n"
+            "^XZ\n"
+            "^XA\n"
+            "^IDR:SSGFX000.GRF\n"
+            "^XZ\n"
+        )
+        vals = {"label_id": self.label.id, "delete_component": True, "data": zpl_data}
+        wizard = self.env["wizard.import.zpl2"].create(vals)
+        # The missing graphic is skipped with a warning
+        logger = "odoo.addons.printer_zpl2.wizard.wizard_import_zpl2"
+        with self.assertLogs(logger, "WARNING") as logs:
+            wizard.import_zpl2()
+        self.assertEqual(len(logs.output), 1)
+        self.assertIn("Recalled graphic not found", logs.output[0])
+        barcode, graphic = self.label.component_ids.sorted("sequence")
+        self.assertEqual(barcode.component_type, "ean-13")
+        self.assertEqual((barcode.origin_x, barcode.origin_y), (538, 535))
+        self.assertEqual(barcode.data, '"761050886653"')
+        self.assertEqual(barcode.module_width, 4)
+        self.assertEqual(barcode.height, 94)
+        self.assertEqual(graphic.component_type, "graphic")
+        self.assertEqual((graphic.origin_x, graphic.origin_y), (12, 77))
+        # Magnified by ^XG
+        self.assertEqual((graphic.width, graphic.height), (32, 6))
+        image = Image.open(io.BytesIO(base64.b64decode(graphic.graphic_image)))
+        self.assertEqual(image.size, (16, 2))
+        self.assertEqual(image.getpixel((0, 0)), 0)
+        self.assertEqual(image.getpixel((0, 1)), 255)
+
+    def test_wizard_import_zpl2_graphic_field(self):
+        """Import inline graphic fields (^GFA), hexadecimal or compressed"""
+        # 16x3 bitmap: 10 black pixels then 6 white ones on each row
+        bitmap = b"\xff\xc0" * 3
+        z64 = base64.b64encode(zlib.compress(bitmap)).decode()
+        zpl_data = (
+            "^XA\n"
+            "^FO10,60^GFA,6,6,2,FFC0FFC0FFC0^FS\n"
+            f"^FO20,70^GFA,6,6,2,:Z64:{z64}:0000^FS\n"
+            "^XZ"
+        )
+        vals = {"label_id": self.label.id, "delete_component": True, "data": zpl_data}
+        wizard = self.env["wizard.import.zpl2"].create(vals)
+        wizard.import_zpl2()
+        hexadecimal, compressed = self.label.component_ids.sorted("sequence")
+        self.assertEqual((hexadecimal.origin_x, hexadecimal.origin_y), (10, 60))
+        self.assertEqual((compressed.origin_x, compressed.origin_y), (20, 70))
+        for component in (hexadecimal, compressed):
+            self.assertEqual(component.component_type, "graphic")
+            self.assertEqual((component.width, component.height), (16, 3))
+            image = Image.open(io.BytesIO(base64.b64decode(component.graphic_image)))
+            self.assertEqual(image.size, (16, 3))
+            self.assertEqual(image.getpixel((9, 2)), 0)
+            self.assertEqual(image.getpixel((10, 2)), 255)
