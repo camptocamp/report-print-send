@@ -303,3 +303,40 @@ class TestWizardImportZpl2(PrinterZpl2Common):
         self.assertEqual((rotated.font, rotated.orientation), ("0", "R"))
         self.assertEqual(rotated.height, 20)
         self.assertEqual(builtin.font, "B")
+
+    def test_wizard_import_zpl2_downloaded_object(self):
+        """Import a label with downloaded objects (~DY): a PNG image moved
+        with ^IM, a bitmap recalled with ^XG, and a font, ignored"""
+        # 16x2 PNG: a black line above a white one
+        img = Image.new("L", (16, 2), 255)
+        for x in range(16):
+            img.putpixel((x, 0), 0)
+        png = io.BytesIO()
+        img.save(png, format="PNG")
+        png = png.getvalue()
+        b64 = base64.b64encode(png).decode()
+        zpl_data = (
+            "^XA\n"
+            f"~DYR:LOGO,P,P,{len(png)},0,:B64:{b64}:0000\n"
+            "~DYE:BITMAP,A,G,4,2,FFFF0000\n"
+            "~DYE:FONT,A,T,4,,AAAAAAAA\n"
+            "^XZ\n"
+            "^XA\n"
+            "^FO12,77^IMR:LOGO.PNG^FS\n"
+            "^FO20,30^XGE:BITMAP.GRF,1,1^FS\n"
+            "^XZ\n"
+        )
+        vals = {"label_id": self.label.id, "delete_component": True, "data": zpl_data}
+        wizard = self.env["wizard.import.zpl2"].create(vals)
+        wizard.import_zpl2()
+        logo, bitmap = self.label.component_ids.sorted("sequence")
+        self.assertEqual(set((logo + bitmap).mapped("component_type")), {"graphic"})
+        self.assertEqual((logo.origin_x, logo.origin_y), (12, 77))
+        self.assertEqual((logo.width, logo.height), (16, 2))
+        # The image is stored as is
+        self.assertEqual(base64.b64decode(logo.graphic_image), png)
+        self.assertEqual((bitmap.origin_x, bitmap.origin_y), (20, 30))
+        self.assertEqual((bitmap.width, bitmap.height), (16, 2))
+        image = Image.open(io.BytesIO(base64.b64decode(bitmap.graphic_image)))
+        self.assertEqual(image.getpixel((0, 0)), 0)
+        self.assertEqual(image.getpixel((0, 1)), 255)

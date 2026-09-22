@@ -393,12 +393,23 @@ def _graphic_name(name):
     return name.strip().split(":")[-1].upper()
 
 
+def _image_vals(image_data):
+    """Return the component values of an image file (PNG, ...)"""
+    img = Image.open(io.BytesIO(image_data))
+    return {
+        "component_type": "graphic",
+        "graphic_image": base64.b64encode(image_data),
+        zpl2.ARG_WIDTH: img.width,
+        zpl2.ARG_HEIGHT: img.height,
+    }
+
+
 def _download_graphics(data):
-    """Extract the ~DG commands and return the graphics, by name, and the
-    remaining data"""
+    """Extract the ~DG and ~DY commands and return the graphics, by name, and
+    the remaining data"""
     graphics = {}
 
-    def _download(match):
+    def _download_graphic(match):
         name, total_bytes, bytes_per_row, ascii_data = match.groups()
         total_bytes = int(total_bytes)
         bytes_per_row = int(bytes_per_row)
@@ -406,8 +417,41 @@ def _download_graphics(data):
         graphics[_graphic_name(name)] = _graphic_vals(raw, total_bytes, bytes_per_row)
         return ""
 
-    data = re.sub(r"~DG([^,]+),(\d+),(\d+),([^~^]*)", _download, data)
+    def _download_object(match):
+        # ~DYd:o,f,x,t,w,data: f is the format of the data (A: ASCII, P: PNG,
+        # B: binary), x the extension of the stored object (G/B: .GRF bitmap,
+        # P: .PNG, T: .TTF font, ...)
+        name, data_format, extension, total_bytes, bytes_per_row, object_data = (
+            match.groups()
+        )
+        name = _graphic_name(name)
+        total_bytes = int(total_bytes)
+        if data_format == "P" or extension == "P":
+            vals = _image_vals(_decode_graphic_data(object_data, total_bytes))
+            extension = "PNG"
+        elif data_format == "A" and extension in ("G", "B") and bytes_per_row:
+            raw = _decode_graphic_data(object_data, total_bytes)
+            vals = _graphic_vals(raw, total_bytes, int(bytes_per_row))
+            extension = "GRF"
+        else:
+            _logger.info("Downloaded object %s ignored: not an image", name)
+            return ""
+        if "." not in name:
+            name = f"{name}.{extension}"
+        graphics[name] = vals
+        return ""
+
+    data = re.sub(r"~DG([^,]+),(\d+),(\d+),([^~^]*)", _download_graphic, data)
+    data = re.sub(
+        r"~DY([^,]+),([A-Z]),([A-Z]+),(\d+),(\d*),([^~^]*)", _download_object, data
+    )
     return graphics, data
+
+
+def _image_move(data):
+    if data[:2] == "IM":
+        return {"component_type": "graphic", "graphic_name": _graphic_name(data[2:])}
+    return {}
 
 
 def _recall_graphic(data):
@@ -456,6 +500,7 @@ SUPPORTED_CODE = {
     "GD": {"method": _graphic_diagonal_line},
     "GFA": {"method": _graphic_field},
     "XG": {"method": _recall_graphic},
+    "IM": {"method": _image_move},
 }
 
 
