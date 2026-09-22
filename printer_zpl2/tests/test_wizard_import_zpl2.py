@@ -187,3 +187,32 @@ class TestWizardImportZpl2(PrinterZpl2Common):
         # Defaults of the omitted arguments
         self.assertEqual(left.color, "B")
         self.assertEqual(left.diagonal_orientation, "L")
+
+    def test_wizard_import_zpl2_defaults(self):
+        """The default font (^CF) and barcode (^BY) values apply to the
+        fields that do not set them, and do not override the ones that do"""
+        zpl_data = (
+            "^XA\n"
+            "^CF0,20,25\n"
+            "^BY2,3.0,50\n"
+            "^FO10,10^A0N,30,40^FDEXPLICIT^FS\n"
+            "^FO10,50^FDDEFAULT^FS\n"
+            "^FO10,100^BCN,30,N,N,N^FDEXPLICIT^FS\n"
+            "^FO10,150^BCN^FDDEFAULT^FS\n"
+            "^FO10,200^BCN,,N,N,N^FDOMITTED^FS\n"
+            "^XZ"
+        )
+        vals = {"label_id": self.label.id, "delete_component": True, "data": zpl_data}
+        wizard = self.env["wizard.import.zpl2"].create(vals)
+        wizard.import_zpl2()
+        text, default_text, barcode, default_barcode, omitted = (
+            self.label.component_ids.sorted("sequence")
+        )
+        self.assertEqual((text.height, text.width), (30, 40))
+        self.assertEqual((default_text.height, default_text.width), (20, 25))
+        self.assertEqual((barcode.height, barcode.module_width), (30, 2))
+        self.assertEqual(
+            (default_barcode.height, default_barcode.module_width), (50, 2)
+        )
+        # An omitted (empty) argument falls back to the default too
+        self.assertEqual((omitted.height, omitted.module_width), (50, 2))

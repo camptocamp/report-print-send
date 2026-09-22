@@ -53,10 +53,10 @@ def _default_font_format(data):
     if data[:2] == "CF":
         args = [zpl2.ARG_FONT, zpl2.ARG_HEIGHT, zpl2.ARG_WIDTH]
         vals = _compute_arg(data[2:], args)
-        if vals.get(zpl2.ARG_HEIGHT, False) and not vals.get(zpl2.ARG_WIDTH, False):
-            vals.update({zpl2.ARG_WIDTH: vals.get(zpl2.ARG_HEIGHT)})
-        else:
-            vals.update({zpl2.ARG_HEIGHT: 10})
+        if not vals.get(zpl2.ARG_HEIGHT):
+            vals[zpl2.ARG_HEIGHT] = 10
+        if not vals.get(zpl2.ARG_WIDTH):
+            vals[zpl2.ARG_WIDTH] = vals[zpl2.ARG_HEIGHT]
         return vals
     return {}
 
@@ -454,7 +454,7 @@ class WizardImportZPl2(models.TransientModel):
                     if component_arg:
                         if code.get("default", False):
                             for deft in code.get("default"):
-                                default.update({deft: component_arg})
+                                default.setdefault(deft, {}).update(component_arg)
                         else:
                             vals.update(component_arg)
                         break
@@ -472,8 +472,12 @@ class WizardImportZPl2(models.TransientModel):
                 if "component_type" not in vals.keys():
                     vals.update({"component_type": "text"})
 
-                if vals["component_type"] in default.keys():
-                    vals.update(default[vals["component_type"]])
+                # The arguments of the field override the defaults, but the
+                # omitted ones (empty) do not
+                vals = {
+                    **default.get(vals["component_type"], {}),
+                    **{key: value for key, value in vals.items() if value != ""},
+                }
 
                 vals = self._update_vals(vals)
 
