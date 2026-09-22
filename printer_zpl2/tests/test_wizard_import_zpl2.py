@@ -278,3 +278,28 @@ class TestWizardImportZpl2(PrinterZpl2Common):
         wizard.import_zpl2()
         self.assertEqual((self.label.origin_x, self.label.origin_y), (20, 30))
         self.assertEqual(self.label.width, 949)
+
+    def test_wizard_import_zpl2_scalable_font(self):
+        """A scalable font stored on the printer (^A@) is imported as the
+        default font, with a warning"""
+        zpl_data = (
+            "^XA\n"
+            "^FO10,10^A@N,30,40,E:ARIAL.TTF^FDSCALABLE^FS\n"
+            "^FO10,50^A@R,20^FDROTATED^FS\n"
+            "^FO10,100^ABN,30,40^FDBUILTIN^FS\n"
+            "^XZ"
+        )
+        vals = {"label_id": self.label.id, "delete_component": True, "data": zpl_data}
+        wizard = self.env["wizard.import.zpl2"].create(vals)
+        logger = "odoo.addons.printer_zpl2.wizard.wizard_import_zpl2"
+        with self.assertLogs(logger, "WARNING") as logs:
+            wizard.import_zpl2()
+        self.assertEqual(len(logs.output), 2)
+        self.assertIn("E:ARIAL.TTF", logs.output[0])
+        scalable, rotated, builtin = self.label.component_ids.sorted("sequence")
+        self.assertEqual(scalable.font, "0")
+        self.assertEqual(scalable.orientation, "N")
+        self.assertEqual((scalable.height, scalable.width), (30, 40))
+        self.assertEqual((rotated.font, rotated.orientation), ("0", "R"))
+        self.assertEqual(rotated.height, 20)
+        self.assertEqual(builtin.font, "B")

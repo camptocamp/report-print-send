@@ -70,6 +70,22 @@ def _field_typeset(data):
 
 
 def _font_format(data):
+    if data[:2] == "A@":
+        # Scalable font stored on the printer (^A@o,h,w,d:f.x): the font file
+        # is not available here, use the default scalable font
+        data = data.split(",")
+        vals = {zpl2.ARG_FONT: zpl2.FONT_DEFAULT}
+        if len(data[0]) > 2:
+            vals[zpl2.ARG_ORIENTATION] = data[0][2]
+        if len(data) > 1:
+            vals[zpl2.ARG_HEIGHT] = data[1]
+        if len(data) > 2:
+            vals[zpl2.ARG_WIDTH] = data[2]
+        _logger.warning(
+            "Scalable font %s is not available, imported as the default font",
+            data[3] if len(data) > 3 else "",
+        )
+        return vals
     if data[:1] == "A":
         data = data.split(",")
         vals = {}
