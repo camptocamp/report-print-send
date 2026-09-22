@@ -236,3 +236,29 @@ class TestWizardImportZpl2(PrinterZpl2Common):
         self.assertEqual(
             components.mapped("position_type"), ["typeset", "typeset", "origin"]
         )
+
+    def test_wizard_import_zpl2_default_orientation(self):
+        """The default orientation (^FW) applies to the fields that omit it"""
+        zpl_data = (
+            "^XA\n"
+            "^CF0,20\n"
+            "^FWR\n"
+            "^FO10,10^A0,30,30^FDDEFAULT^FS\n"
+            "^FO10,50^FDDEFAULT FONT^FS\n"
+            "^FO10,100^A0N,30,30^FDEXPLICIT^FS\n"
+            "^FO10,200^BC,40,N,N,N^FDBARCODE^FS\n"
+            "^FO10,300^GB100,50,2^FS\n"
+            "^FWN\n"
+            "^FO10,400^A0,30,30^FDNORMAL^FS\n"
+            "^XZ"
+        )
+        vals = {"label_id": self.label.id, "delete_component": True, "data": zpl_data}
+        wizard = self.env["wizard.import.zpl2"].create(vals)
+        wizard.import_zpl2()
+        components = self.label.component_ids.sorted("sequence")
+        self.assertEqual(
+            components.mapped("orientation"), ["R", "R", "N", "R", "N", "N"]
+        )
+        # The font defaults are kept alongside the orientation default
+        self.assertEqual(components[1].height, 20)
+        self.assertEqual(components[3].height, 40)

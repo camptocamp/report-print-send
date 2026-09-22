@@ -16,6 +16,25 @@ from ..models import zpl2
 
 _logger = logging.getLogger(__name__)
 
+ORIENTATIONS = (
+    zpl2.ORIENTATION_NORMAL,
+    zpl2.ORIENTATION_ROTATED,
+    zpl2.ORIENTATION_INVERTED,
+    zpl2.ORIENTATION_BOTTOM_UP,
+)
+BARCODES = [
+    zpl2.BARCODE_CODE_11,
+    zpl2.BARCODE_INTERLEAVED_2_OF_5,
+    zpl2.BARCODE_CODE_39,
+    zpl2.BARCODE_CODE_49,
+    zpl2.BARCODE_PDF417,
+    zpl2.BARCODE_EAN_8,
+    zpl2.BARCODE_UPC_E,
+    zpl2.BARCODE_CODE_128,
+    zpl2.BARCODE_EAN_13,
+    zpl2.BARCODE_QR_CODE,
+]
+
 
 def _compute_arg(data, arg):
     vals = {}
@@ -76,6 +95,14 @@ def _default_font_format(data):
         if not vals.get(zpl2.ARG_WIDTH):
             vals[zpl2.ARG_WIDTH] = vals[zpl2.ARG_HEIGHT]
         return vals
+    return {}
+
+
+def _default_field_orientation(data):
+    if data[:2] == "FW":
+        orientation = data[2:3]
+        if orientation in ORIENTATIONS:
+            return {zpl2.ARG_ORIENTATION: orientation}
     return {}
 
 
@@ -401,22 +428,12 @@ SUPPORTED_CODE = {
     "BC": {"method": _code128},
     "BE": {"method": _ean13},
     "BQ": {"method": _qrcode},
-    "BY": {
-        "method": _default_barcode_field,
-        "default": [
-            zpl2.BARCODE_CODE_11,
-            zpl2.BARCODE_INTERLEAVED_2_OF_5,
-            zpl2.BARCODE_CODE_39,
-            zpl2.BARCODE_CODE_49,
-            zpl2.BARCODE_PDF417,
-            zpl2.BARCODE_EAN_8,
-            zpl2.BARCODE_UPC_E,
-            zpl2.BARCODE_CODE_128,
-            zpl2.BARCODE_EAN_13,
-            zpl2.BARCODE_QR_CODE,
-        ],
-    },
+    "BY": {"method": _default_barcode_field, "default": BARCODES},
     "CF": {"method": _default_font_format, "default": ["text"]},
+    "FW": {
+        "method": _default_field_orientation,
+        "default": ["text", "graphic", *BARCODES],
+    },
     "FR": {"method": _field_reverse_print},
     "GB": {"method": _graphic_box},
     "GC": {"method": _graphic_circle},
