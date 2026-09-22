@@ -253,6 +253,21 @@ def _graphic_box(data):
     return {}
 
 
+def _graphic_diagonal_line(data):
+    if data[:2] == "GD":
+        vals = {"component_type": "diagonal"}
+        args = [
+            zpl2.ARG_WIDTH,
+            zpl2.ARG_HEIGHT,
+            zpl2.ARG_THICKNESS,
+            zpl2.ARG_COLOR,
+            zpl2.ARG_DIAGONAL_ORIENTATION,
+        ]
+        vals.update(_compute_arg(data[2:], args))
+        return vals
+    return {}
+
+
 def _graphic_circle(data):
     if data[:2] == "GC":
         vals = {"component_type": "circle"}
@@ -386,6 +401,7 @@ SUPPORTED_CODE = {
     "FR": {"method": _field_reverse_print},
     "GB": {"method": _graphic_box},
     "GC": {"method": _graphic_circle},
+    "GD": {"method": _graphic_diagonal_line},
     "GFA": {"method": _graphic_field},
     "XG": {"method": _recall_graphic},
 }
