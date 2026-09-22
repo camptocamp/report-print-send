@@ -216,3 +216,23 @@ class TestWizardImportZpl2(PrinterZpl2Common):
         )
         # An omitted (empty) argument falls back to the default too
         self.assertEqual((omitted.height, omitted.module_width), (50, 2))
+
+    def test_wizard_import_zpl2_field_typeset(self):
+        """Fields positioned with ^FT keep their coordinates, and are marked
+        as positioned by their bottom left corner"""
+        zpl_data = (
+            "^XA\n"
+            "^FT10,50^A0N,30,30^FDTEXT^FS\n"
+            "^FT20,100,1^BCN,40,N,N,N^FDBARCODE^FS\n"
+            "^FO30,150^A0N,30,30^FDORIGIN^FS\n"
+            "^XZ"
+        )
+        vals = {"label_id": self.label.id, "delete_component": True, "data": zpl_data}
+        wizard = self.env["wizard.import.zpl2"].create(vals)
+        wizard.import_zpl2()
+        components = self.label.component_ids.sorted("sequence")
+        self.assertEqual(components.mapped("origin_x"), [10, 20, 30])
+        self.assertEqual(components.mapped("origin_y"), [50, 100, 150])
+        self.assertEqual(
+            components.mapped("position_type"), ["typeset", "typeset", "origin"]
+        )
