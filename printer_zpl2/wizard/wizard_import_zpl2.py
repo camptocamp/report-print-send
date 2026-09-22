@@ -24,10 +24,28 @@ def _compute_arg(data, arg):
     return vals
 
 
+def _field_position(data):
+    """Parse the x,y[,z] arguments of ^FO and ^FT, ignoring the omitted ones"""
+    vals = _compute_arg(data, ["origin_x", "origin_y", "justification"])
+    return {
+        key: int(value)
+        for key, value in vals.items()
+        if key != "justification" and value.strip()
+    }
+
+
 def _field_origin(data):
     if data[:2] == "FO":
-        position = data[2:]
-        vals = _compute_arg(position, ["origin_x", "origin_y"])
+        vals = _field_position(data[2:])
+        vals["position_type"] = "origin"
+        return vals
+    return {}
+
+
+def _field_typeset(data):
+    if data[:2] == "FT":
+        vals = _field_position(data[2:])
+        vals["position_type"] = "typeset"
         return vals
     return {}
 
@@ -369,6 +387,7 @@ def _get_data(data):
 
 SUPPORTED_CODE = {
     "FO": {"method": _field_origin},
+    "FT": {"method": _field_typeset},
     "FD": {"method": _get_data},
     "A": {"method": _font_format},
     "FB": {"method": _field_block},
