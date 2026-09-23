@@ -511,10 +511,20 @@ class WizardImportZPl2(models.TransientModel):
     label_id = fields.Many2one(
         comodel_name="printing.label.zpl2", string="Label", required=True, readonly=True
     )
-    data = fields.Text(required=True, help="Printer used to print the labels.")
+    zpl_file = fields.Binary(string="ZPL2 File", required=True)
+    zpl_filename = fields.Char(string="File Name")
     delete_component = fields.Boolean(
         string="Delete existing components", default=False
     )
+
+    def _read_zpl_file(self):
+        """Decode the ZPL2 file: UTF-8 (label designers add a BOM), or the
+        printer's single byte encoding"""
+        content = base64.b64decode(self.zpl_file)
+        try:
+            return content.decode("utf-8-sig")
+        except UnicodeDecodeError:
+            return content.decode("latin-1")
 
     def _start_sequence(self):
         sequences = self.mapped("label_id.component_ids.sequence")
@@ -533,7 +543,7 @@ class WizardImportZPl2(models.TransientModel):
         default = {}
 
         # Graphics are downloaded once (~DG) and recalled by name (^XG)
-        graphics, data = _download_graphics(self.data)
+        graphics, data = _download_graphics(self._read_zpl_file())
 
         self._import_label_settings(data)
 

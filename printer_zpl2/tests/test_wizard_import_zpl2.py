@@ -10,6 +10,11 @@ from PIL import Image
 from .common import PrinterZpl2Common
 
 
+def _file(zpl_data):
+    """The ZPL2 data as an uploaded file"""
+    return base64.b64encode(zpl_data.encode())
+
+
 class TestWizardImportZpl2(PrinterZpl2Common):
     def test_open_wizard(self):
         """open wizard from label"""
@@ -50,7 +55,11 @@ class TestWizardImportZpl2(PrinterZpl2Common):
             "^XZ"
         )
 
-        vals = {"label_id": self.label.id, "delete_component": True, "data": zpl_data}
+        vals = {
+            "label_id": self.label.id,
+            "delete_component": True,
+            "zpl_file": _file(zpl_data),
+        }
         wizard = self.env["wizard.import.zpl2"].create(vals)
         wizard.import_zpl2()
         self.assertEqual(18, len(self.label.component_ids))
@@ -67,7 +76,11 @@ class TestWizardImportZpl2(PrinterZpl2Common):
         )
         zpl_data = "^XA\n^CI28\n^LH0,0\n^FO10,10^A0N,30,30^FDTEXT^FS\n^JUR\n^XZ"
 
-        vals = {"label_id": self.label.id, "delete_component": False, "data": zpl_data}
+        vals = {
+            "label_id": self.label.id,
+            "delete_component": False,
+            "zpl_file": _file(zpl_data),
+        }
         wizard = self.env["wizard.import.zpl2"].create(vals)
         wizard.import_zpl2()
         self.assertEqual(2, len(self.label.component_ids))
@@ -103,7 +116,11 @@ class TestWizardImportZpl2(PrinterZpl2Common):
             "^IDR:SSGFX000.GRF\n"
             "^XZ\n"
         )
-        vals = {"label_id": self.label.id, "delete_component": True, "data": zpl_data}
+        vals = {
+            "label_id": self.label.id,
+            "delete_component": True,
+            "zpl_file": _file(zpl_data),
+        }
         wizard = self.env["wizard.import.zpl2"].create(vals)
         # The missing graphic is skipped with a warning
         logger = "odoo.addons.printer_zpl2.wizard.wizard_import_zpl2"
@@ -137,7 +154,11 @@ class TestWizardImportZpl2(PrinterZpl2Common):
             f"^FO20,70^GFA,6,6,2,:Z64:{z64}:0000^FS\n"
             "^XZ"
         )
-        vals = {"label_id": self.label.id, "delete_component": True, "data": zpl_data}
+        vals = {
+            "label_id": self.label.id,
+            "delete_component": True,
+            "zpl_file": _file(zpl_data),
+        }
         wizard = self.env["wizard.import.zpl2"].create(vals)
         wizard.import_zpl2()
         hexadecimal, compressed = self.label.component_ids.sorted("sequence")
@@ -161,7 +182,11 @@ class TestWizardImportZpl2(PrinterZpl2Common):
             "^FO10,130^A0N,30,30^FDFOURTH\n"
             "^XZ"
         )
-        vals = {"label_id": self.label.id, "delete_component": True, "data": zpl_data}
+        vals = {
+            "label_id": self.label.id,
+            "delete_component": True,
+            "zpl_file": _file(zpl_data),
+        }
         wizard = self.env["wizard.import.zpl2"].create(vals)
         wizard.import_zpl2()
         components = self.label.component_ids.sorted("sequence")
@@ -174,7 +199,11 @@ class TestWizardImportZpl2(PrinterZpl2Common):
     def test_wizard_import_zpl2_diagonal_line(self):
         """Import diagonal lines (^GD)"""
         zpl_data = "^XA\n^FO10,20^GD100,50,3,B,R^FS\n^FO30,40^GD60,60,2^FS\n^XZ"
-        vals = {"label_id": self.label.id, "delete_component": True, "data": zpl_data}
+        vals = {
+            "label_id": self.label.id,
+            "delete_component": True,
+            "zpl_file": _file(zpl_data),
+        }
         wizard = self.env["wizard.import.zpl2"].create(vals)
         wizard.import_zpl2()
         right, left = self.label.component_ids.sorted("sequence")
@@ -202,7 +231,11 @@ class TestWizardImportZpl2(PrinterZpl2Common):
             "^FO10,200^BCN,,N,N,N^FDOMITTED^FS\n"
             "^XZ"
         )
-        vals = {"label_id": self.label.id, "delete_component": True, "data": zpl_data}
+        vals = {
+            "label_id": self.label.id,
+            "delete_component": True,
+            "zpl_file": _file(zpl_data),
+        }
         wizard = self.env["wizard.import.zpl2"].create(vals)
         wizard.import_zpl2()
         text, default_text, barcode, default_barcode, omitted = (
@@ -227,7 +260,11 @@ class TestWizardImportZpl2(PrinterZpl2Common):
             "^FO30,150^A0N,30,30^FDORIGIN^FS\n"
             "^XZ"
         )
-        vals = {"label_id": self.label.id, "delete_component": True, "data": zpl_data}
+        vals = {
+            "label_id": self.label.id,
+            "delete_component": True,
+            "zpl_file": _file(zpl_data),
+        }
         wizard = self.env["wizard.import.zpl2"].create(vals)
         wizard.import_zpl2()
         components = self.label.component_ids.sorted("sequence")
@@ -252,7 +289,11 @@ class TestWizardImportZpl2(PrinterZpl2Common):
             "^FO10,400^A0,30,30^FDNORMAL^FS\n"
             "^XZ"
         )
-        vals = {"label_id": self.label.id, "delete_component": True, "data": zpl_data}
+        vals = {
+            "label_id": self.label.id,
+            "delete_component": True,
+            "zpl_file": _file(zpl_data),
+        }
         wizard = self.env["wizard.import.zpl2"].create(vals)
         wizard.import_zpl2()
         components = self.label.component_ids.sorted("sequence")
@@ -267,14 +308,20 @@ class TestWizardImportZpl2(PrinterZpl2Common):
         """The label home (^LH) and print width (^PW) are set on the label"""
         self.label.write({"origin_x": 10, "origin_y": 10, "width": 480})
         zpl_data = "^XA\n^PW949\n^LH20,30\n^FO10,10^A0N,30,30^FDTEXT^FS\n^XZ"
-        vals = {"label_id": self.label.id, "delete_component": True, "data": zpl_data}
+        vals = {
+            "label_id": self.label.id,
+            "delete_component": True,
+            "zpl_file": _file(zpl_data),
+        }
         wizard = self.env["wizard.import.zpl2"].create(vals)
         wizard.import_zpl2()
         self.assertEqual((self.label.origin_x, self.label.origin_y), (20, 30))
         self.assertEqual(self.label.width, 949)
         # Kept when the imported data does not set them
         zpl_data = "^XA\n^FO10,10^A0N,30,30^FDTEXT^FS\n^XZ"
-        wizard = self.env["wizard.import.zpl2"].create(dict(vals, data=zpl_data))
+        wizard = self.env["wizard.import.zpl2"].create(
+            dict(vals, zpl_file=_file(zpl_data))
+        )
         wizard.import_zpl2()
         self.assertEqual((self.label.origin_x, self.label.origin_y), (20, 30))
         self.assertEqual(self.label.width, 949)
@@ -289,7 +336,11 @@ class TestWizardImportZpl2(PrinterZpl2Common):
             "^FO10,100^ABN,30,40^FDBUILTIN^FS\n"
             "^XZ"
         )
-        vals = {"label_id": self.label.id, "delete_component": True, "data": zpl_data}
+        vals = {
+            "label_id": self.label.id,
+            "delete_component": True,
+            "zpl_file": _file(zpl_data),
+        }
         wizard = self.env["wizard.import.zpl2"].create(vals)
         logger = "odoo.addons.printer_zpl2.wizard.wizard_import_zpl2"
         with self.assertLogs(logger, "WARNING") as logs:
@@ -326,7 +377,11 @@ class TestWizardImportZpl2(PrinterZpl2Common):
             "^FO20,30^XGE:BITMAP.GRF,1,1^FS\n"
             "^XZ\n"
         )
-        vals = {"label_id": self.label.id, "delete_component": True, "data": zpl_data}
+        vals = {
+            "label_id": self.label.id,
+            "delete_component": True,
+            "zpl_file": _file(zpl_data),
+        }
         wizard = self.env["wizard.import.zpl2"].create(vals)
         wizard.import_zpl2()
         logo, bitmap = self.label.component_ids.sorted("sequence")
@@ -340,3 +395,20 @@ class TestWizardImportZpl2(PrinterZpl2Common):
         image = Image.open(io.BytesIO(base64.b64decode(bitmap.graphic_image)))
         self.assertEqual(image.getpixel((0, 0)), 0)
         self.assertEqual(image.getpixel((0, 1)), 255)
+
+    def test_wizard_import_zpl2_file_encoding(self):
+        """The file is decoded as UTF-8, with or without BOM, or as latin-1"""
+        zpl_data = "^XA\n^FO10,10^A0N,30,30^FDGrüße^FS\n^XZ"
+        for content in (
+            zpl_data.encode("utf-8"),
+            zpl_data.encode("utf-8-sig"),
+            zpl_data.encode("latin-1"),
+        ):
+            vals = {
+                "label_id": self.label.id,
+                "delete_component": True,
+                "zpl_file": base64.b64encode(content),
+            }
+            wizard = self.env["wizard.import.zpl2"].create(vals)
+            wizard.import_zpl2()
+            self.assertEqual(self.label.component_ids.data, '"Grüße"')
