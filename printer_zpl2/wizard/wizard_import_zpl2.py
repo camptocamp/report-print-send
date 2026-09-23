@@ -581,6 +581,11 @@ class WizardImportZPl2(models.TransientModel):
                 if "component_type" not in vals.keys():
                     vals.update({"component_type": "text"})
 
+                if vals.get(zpl2.ARG_IN_BLOCK) and "data" in vals:
+                    # \& breaks the line in a block: a line break in the
+                    # string literal of the data
+                    vals["data"] = vals["data"].replace("\\&", "\\n")
+
                 # The arguments of the field override the defaults, but the
                 # omitted ones (empty) do not
                 vals = {

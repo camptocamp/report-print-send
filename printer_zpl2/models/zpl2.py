@@ -371,6 +371,11 @@ class Zpl2:
         block = ""
         if field_format.get(ARG_IN_BLOCK, False):
             block = self._field_block(field_format)
+        if isinstance(data, str):
+            # The printer ignores the line breaks of the field data: in a
+            # block, \& breaks the line; out of a block, there is no line break
+            data = data.replace("\r\n", "\n")
+            data = data.replace("\n", "\\&" if block else " ")
         command = (
             f"{self._field_origin(right, down, typeset)}"
             f"{self._font_format(field_format)}"
