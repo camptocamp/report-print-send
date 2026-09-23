@@ -133,7 +133,7 @@ class TestWizardImportZpl2(PrinterZpl2Common):
         barcode, graphic = self.label.component_ids.sorted("sequence")
         self.assertEqual(barcode.component_type, "ean-13")
         self.assertEqual((barcode.origin_x, barcode.origin_y), (538, 535))
-        self.assertEqual(barcode.data, '"761050886653"')
+        self.assertEqual(barcode.data, "'761050886653'")
         self.assertEqual(barcode.module_width, 4)
         self.assertEqual(barcode.height, 94)
         self.assertEqual(graphic.component_type, "graphic")
@@ -193,7 +193,7 @@ class TestWizardImportZpl2(PrinterZpl2Common):
         wizard.import_zpl2()
         components = self.label.component_ids.sorted("sequence")
         self.assertEqual(
-            components.mapped("data"), ['"FIRST"', '"SECOND"', '"THIRD"', '"FOURTH"']
+            components.mapped("data"), ["'FIRST'", "'SECOND'", "'THIRD'", "'FOURTH'"]
         )
         self.assertEqual(components.mapped("origin_y"), [10, 50, 90, 130])
         self.assertEqual(set(components.mapped("component_type")), {"text"})
@@ -413,11 +413,18 @@ class TestWizardImportZpl2(PrinterZpl2Common):
             }
             wizard = self.env["wizard.import.zpl2"].create(vals)
             wizard.import_zpl2()
-            self.assertEqual(self.label.component_ids.data, '"Grüße"')
+            self.assertEqual(self.label.component_ids.data, "'Grüße'")
 
     def test_wizard_import_zpl2_field_data(self):
-        """\\& breaks the line of the field data in a block"""
-        zpl_data = "^XA\n^FO10,50^A0N,30,30^FB300,2,0,L^FDLine one\\&Line two^FS\n^XZ"
+        """The field data is imported as a Python string literal, whatever it
+        contains, and \\& breaks the line in a block"""
+        zpl_data = (
+            "^XA\n"
+            '^FO10,10^A0N,30,30^FDSay "hi" to O\'Neil^FS\n'
+            "^FO10,50^A0N,30,30^FB300,2,0,L^FDLine one\\&Line two^FS\n"
+            "^FO10,100^A0N,30,30^FDNo block\\&here^FS\n"
+            "^XZ"
+        )
         vals = {
             "label_id": self.label.id,
             "delete_component": True,
@@ -425,5 +432,7 @@ class TestWizardImportZpl2(PrinterZpl2Common):
         }
         wizard = self.env["wizard.import.zpl2"].create(vals)
         wizard.import_zpl2()
-        block = self.label.component_ids
+        quotes, block, plain = self.label.component_ids.sorted("sequence")
+        self.assertEqual(safe_eval(quotes.data), 'Say "hi" to O\'Neil')
         self.assertEqual(safe_eval(block.data), "Line one\nLine two")
+        self.assertEqual(safe_eval(plain.data), "No block\\&here")

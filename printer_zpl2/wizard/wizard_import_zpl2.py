@@ -468,7 +468,7 @@ def _recall_graphic(data):
 
 def _get_data(data):
     if data[:2] == "FD":
-        return {"data": f'"{data[2:]}"'}
+        return {"data": data[2:]}
     return {}
 
 
@@ -581,10 +581,13 @@ class WizardImportZPl2(models.TransientModel):
                 if "component_type" not in vals.keys():
                     vals.update({"component_type": "text"})
 
-                if vals.get(zpl2.ARG_IN_BLOCK) and "data" in vals:
-                    # \& breaks the line in a block: a line break in the
-                    # string literal of the data
-                    vals["data"] = vals["data"].replace("\\&", "\\n")
+                if "data" in vals:
+                    # The data is a Python expression: a string literal
+                    text = vals["data"]
+                    if vals.get(zpl2.ARG_IN_BLOCK):
+                        # \& breaks the line in a block
+                        text = text.replace("\\&", "\n")
+                    vals["data"] = repr(text)
 
                 # The arguments of the field override the defaults, but the
                 # omitted ones (empty) do not
