@@ -124,12 +124,10 @@ class TestWizardImportZpl2(PrinterZpl2Common):
             "zpl_file": _file(zpl_data),
         }
         wizard = self.env["wizard.import.zpl2"].create(vals)
-        # The missing graphic is skipped with a warning
-        logger = "odoo.addons.printer_zpl2.wizard.wizard_import_zpl2"
-        with self.assertLogs(logger, "WARNING") as logs:
-            wizard.import_zpl2()
-        self.assertEqual(len(logs.output), 1)
-        self.assertIn("Recalled graphic not found", logs.output[0])
+        wizard.import_zpl2()
+        # The missing graphic is skipped, and reported
+        self.assertIn("Graphic MISSING.GRF not found", wizard.report)
+        self.assertIn("field at 10,10", wizard.report)
         barcode, graphic = self.label.component_ids.sorted("sequence")
         self.assertEqual(barcode.component_type, "ean-13")
         self.assertEqual((barcode.origin_x, barcode.origin_y), (538, 535))
@@ -344,11 +342,9 @@ class TestWizardImportZpl2(PrinterZpl2Common):
             "zpl_file": _file(zpl_data),
         }
         wizard = self.env["wizard.import.zpl2"].create(vals)
-        logger = "odoo.addons.printer_zpl2.wizard.wizard_import_zpl2"
-        with self.assertLogs(logger, "WARNING") as logs:
-            wizard.import_zpl2()
-        self.assertEqual(len(logs.output), 2)
-        self.assertIn("E:ARIAL.TTF", logs.output[0])
+        wizard.import_zpl2()
+        self.assertEqual(wizard.report.count("replaced by the default font"), 2)
+        self.assertIn("Scalable font E:ARIAL.TTF", wizard.report)
         scalable, rotated, builtin = self.label.component_ids.sorted("sequence")
         self.assertEqual(scalable.font, "0")
         self.assertEqual(scalable.orientation, "N")
@@ -436,3 +432,42 @@ class TestWizardImportZpl2(PrinterZpl2Common):
         self.assertEqual(safe_eval(quotes.data), 'Say "hi" to O\'Neil')
         self.assertEqual(safe_eval(block.data), "Line one\nLine two")
         self.assertEqual(safe_eval(plain.data), "No block\\&here")
+
+    def test_wizard_import_zpl2_report(self):
+        """The wizard reports what it could not import, and reopens on the
+        report"""
+        zpl_data = (
+            "^XA\n"
+            "^PQ1,0,1,Y\n"
+            "~JSN\n"
+            "^FO10,10^A0N,30,30^FDTEXT^FS\n"
+            "^FO10,50^BXN,5,200^FDDATA MATRIX^FS\n"
+            "^FO10,100^BXN,5,200^FDANOTHER^FS\n"
+            "^FO10,150^SN001,1,Y^FDSERIAL^FS\n"
+            "~DYE:FONT,A,T,4,,AAAAAAAA\n"
+            "^XZ"
+        )
+        vals = {
+            "label_id": self.label.id,
+            "delete_component": True,
+            "zpl_file": _file(zpl_data),
+        }
+        wizard = self.env["wizard.import.zpl2"].create(vals)
+        action = wizard.import_zpl2()
+        self.assertEqual(action["res_id"], wizard.id)
+        self.assertEqual(wizard.state, "done")
+        self.assertEqual(
+            wizard.report,
+            "Warnings\n"
+            "  - Downloaded object FONT ignored: not an image\n"
+            "Commands not imported\n"
+            "  - ^BX: fields at 10,50; 10,100\n"
+            "  - ^SN: fields at 10,150",
+        )
+        # Nothing to report
+        zpl_data = "^XA\n^FO10,10^A0N,30,30^FDTEXT^FS\n^XZ"
+        wizard = self.env["wizard.import.zpl2"].create(
+            dict(vals, zpl_file=_file(zpl_data))
+        )
+        wizard.import_zpl2()
+        self.assertEqual(wizard.report, "Everything was imported.")

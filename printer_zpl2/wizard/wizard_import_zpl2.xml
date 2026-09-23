@@ -5,7 +5,8 @@
         <field name="model">wizard.import.zpl2</field>
         <field name="arch" type="xml">
             <form string="Import ZPL2">
-                <group>
+                <field name="state" invisible="1" />
+                <group invisible="state != 'draft'">
                     <group>
                         <field name="label_id" invisible="1" />
                         <field name="zpl_file" filename="zpl_filename" />
@@ -15,14 +16,28 @@
                         <field name="delete_component" />
                     </group>
                 </group>
+                <group string="Import report" invisible="state != 'done'">
+                    <field name="report" nolabel="1" colspan="2" />
+                </group>
                 <footer>
                     <button
                         string="Import"
                         type="object"
                         name="import_zpl2"
                         class="btn-primary"
+                        invisible="state != 'draft'"
                     />
-                    <button string="Cancel" special="cancel" />
+                    <button
+                        string="Cancel"
+                        special="cancel"
+                        invisible="state != 'draft'"
+                    />
+                    <button
+                        string="Close"
+                        special="cancel"
+                        class="btn-primary"
+                        invisible="state != 'done'"
+                    />
                 </footer>
             </form>
         </field>
