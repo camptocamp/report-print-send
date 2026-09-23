@@ -7,6 +7,8 @@ import zlib
 
 from PIL import Image
 
+from odoo.tools.safe_eval import safe_eval
+
 from .common import PrinterZpl2Common
 
 
@@ -412,3 +414,16 @@ class TestWizardImportZpl2(PrinterZpl2Common):
             wizard = self.env["wizard.import.zpl2"].create(vals)
             wizard.import_zpl2()
             self.assertEqual(self.label.component_ids.data, '"Grüße"')
+
+    def test_wizard_import_zpl2_field_data(self):
+        """\\& breaks the line of the field data in a block"""
+        zpl_data = "^XA\n^FO10,50^A0N,30,30^FB300,2,0,L^FDLine one\\&Line two^FS\n^XZ"
+        vals = {
+            "label_id": self.label.id,
+            "delete_component": True,
+            "zpl_file": _file(zpl_data),
+        }
+        wizard = self.env["wizard.import.zpl2"].create(vals)
+        wizard.import_zpl2()
+        block = self.label.component_ids
+        self.assertEqual(safe_eval(block.data), "Line one\nLine two")

@@ -510,6 +510,34 @@ class TestPrintingLabelZpl2(PrinterZpl2Common):
             "^XZ",
         )
 
+    def test_multiline_text_label_contents(self):
+        """The line breaks of the text break the line in a block, and are
+        replaced by a space out of a block"""
+        label = self.new_label()
+        data = "Line one\r\nLine two\nLine three"
+        self.new_component(
+            {
+                "label_id": label.id,
+                "data": repr(data),
+                "in_block": True,
+                "block_lines": 3,
+            }
+        )
+        self.new_component({"label_id": label.id, "data": repr(data)})
+        contents = label._generate_zpl2_data(self.printer).decode("utf-8")
+        self.assertEqual(
+            contents,
+            "^XA\n"
+            "^PW480\n"
+            "^CI28\n"
+            "^LH10,10\n"
+            "^FO10,10^A0N,10,10^FB0,3,0,L,0"
+            "^FDLine one\\&Line two\\&Line three^FS\n"
+            "^FO10,10^A0N,10,10^FDLine one Line two Line three^FS\n"
+            "^JUR\n"
+            "^XZ",
+        )
+
     def test_rectangle_label_contents(self):
         """Check contents of a rectangle label"""
         label = self.new_label()
