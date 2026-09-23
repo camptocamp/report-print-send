@@ -4,7 +4,6 @@
 import base64
 import binascii
 import io
-import logging
 import re
 import zlib
 
@@ -14,7 +13,77 @@ from odoo import fields, models
 
 from ..models import zpl2
 
-_logger = logging.getLogger(__name__)
+# Label and printer configuration commands, meaningless for the components
+IGNORED_COMMANDS = {
+    "XA",
+    "XZ",
+    "PQ",
+    "PW",
+    "LH",
+    "LL",
+    "LS",
+    "LR",
+    "LT",
+    "MD",
+    "MM",
+    "MN",
+    "MT",
+    "MU",
+    "MW",
+    "MC",
+    "MF",
+    "MP",
+    "PM",
+    "PO",
+    "PF",
+    "PH",
+    "PP",
+    "PR",
+    "JM",
+    "JZ",
+    "JU",
+    "JJ",
+    "SZ",
+    "SS",
+    "CI",
+    "CW",
+    "CN",
+    "KL",
+    "HH",
+    "TA",
+    "ID",
+    "XB",
+    "FX",
+    "~JS",
+    "~SD",
+    "~TA",
+    "~JA",
+    "~JC",
+    "~JL",
+    "~JN",
+    "~JO",
+    "~JP",
+    "~JR",
+    "~PS",
+    "~PP",
+    "~PR",
+    "~PH",
+    "~PM",
+    "~PL",
+    "~HS",
+    "~SC",
+    "~WC",
+    "~RO",
+    "~JI",
+    "~JQ",
+    "~JX",
+    "~JE",
+    "~JF",
+    "~JG",
+    "~JH",
+    "~JK",
+    "~JD",
+}
 
 ORIENTATIONS = (
     zpl2.ORIENTATION_NORMAL,
@@ -81,10 +150,8 @@ def _font_format(data):
             vals[zpl2.ARG_HEIGHT] = data[1]
         if len(data) > 2:
             vals[zpl2.ARG_WIDTH] = data[2]
-        _logger.warning(
-            "Scalable font %s is not available, imported as the default font",
-            data[3] if len(data) > 3 else "",
-        )
+        # Reported by the wizard, the font file is not available
+        vals["scalable_font"] = data[3] if len(data) > 3 else ""
         return vals
     if data[:1] == "A":
         data = data.split(",")
@@ -405,9 +472,11 @@ def _image_vals(image_data):
 
 
 def _download_graphics(data):
-    """Extract the ~DG and ~DY commands and return the graphics, by name, and
-    the remaining data"""
+    """Extract the ~DG and ~DY commands and return the graphics, by name, the
+    remaining data, and the names of the downloaded objects that are not
+    images"""
     graphics = {}
+    ignored = []
 
     def _download_graphic(match):
         name, total_bytes, bytes_per_row, ascii_data = match.groups()
@@ -434,7 +503,7 @@ def _download_graphics(data):
             vals = _graphic_vals(raw, total_bytes, int(bytes_per_row))
             extension = "GRF"
         else:
-            _logger.info("Downloaded object %s ignored: not an image", name)
+            ignored.append(name)
             return ""
         if "." not in name:
             name = f"{name}.{extension}"
@@ -445,7 +514,7 @@ def _download_graphics(data):
     data = re.sub(
         r"~DY([^,]+),([A-Z]),([A-Z]+),(\d+),(\d*),([^~^]*)", _download_object, data
     )
-    return graphics, data
+    return graphics, data, ignored
 
 
 def _image_move(data):
@@ -504,6 +573,51 @@ SUPPORTED_CODE = {
 }
 
 
+def _command(arg):
+    """The code of a command argument: ^XX (or ^GFA), or ~XX"""
+    arg = arg.strip()
+    if not arg:
+        return ""
+    if arg[:1] == "~":
+        return arg[:3]
+    if arg[:2] == "GF":
+        return arg[:3]
+    return arg[:2]
+
+
+class _Report:
+    """What the import could not do, for the user to review"""
+
+    def __init__(self, env):
+        self.env = env
+        self.warnings = []
+        self.unknown_commands = {}
+
+    def position(self, vals, index):
+        """Where a field is on the label, to point at it in the report"""
+        if "origin_x" in vals or "origin_y" in vals:
+            return f"{vals.get('origin_x', 0)},{vals.get('origin_y', 0)}"
+        return self.env._("#%s", index)
+
+    def text(self):
+        lines = []
+        if self.warnings:
+            lines.append(self.env._("Warnings"))
+            lines.extend(f"  - {warning}" for warning in self.warnings)
+        if self.unknown_commands:
+            lines.append(self.env._("Commands not imported"))
+            for command, positions in sorted(self.unknown_commands.items()):
+                prefix = "" if command[:1] == "~" else "^"
+                lines.append(
+                    self.env._(
+                        "  - %(command)s: fields at %(positions)s",
+                        command=prefix + command,
+                        positions="; ".join(positions),
+                    )
+                )
+        return "\n".join(lines) or self.env._("Everything was imported.")
+
+
 class WizardImportZPl2(models.TransientModel):
     _name = "wizard.import.zpl2"
     _description = "Import ZPL2"
@@ -516,6 +630,10 @@ class WizardImportZPl2(models.TransientModel):
     delete_component = fields.Boolean(
         string="Delete existing components", default=False
     )
+    state = fields.Selection(
+        selection=[("draft", "Draft"), ("done", "Done")], default="draft"
+    )
+    report = fields.Text(readonly=True)
 
     def _read_zpl_file(self):
         """Decode the ZPL2 file: UTF-8 (label designers add a BOM), or the
@@ -534,16 +652,19 @@ class WizardImportZPl2(models.TransientModel):
 
     def import_zpl2(self):
         self.ensure_one()
-        Zpl2Component = self.env["printing.label.zpl2.component"]
-
         if self.delete_component:
             self.mapped("label_id.component_ids").unlink()
 
         sequence = self._start_sequence()
         default = {}
+        report = _Report(self.env)
 
         # Graphics are downloaded once (~DG) and recalled by name (^XG)
-        graphics, data = _download_graphics(self._read_zpl_file())
+        graphics, data, ignored = _download_graphics(self._read_zpl_file())
+        for name in ignored:
+            report.warnings.append(
+                self.env._("Downloaded object %s ignored: not an image", name)
+            )
 
         self._import_label_settings(data)
 
@@ -554,60 +675,107 @@ class WizardImportZPl2(models.TransientModel):
         # missing.
         data = data.replace("\x0f", "^FS")
         for i, field in enumerate(re.split(r"\^FS|(?=\^F[OT])", data)):
-            vals = {}
-
-            args = re.split(r"[\^\r\n]", field)
-            for arg in args:
-                for _key, code in SUPPORTED_CODE.items():
-                    component_arg = code["method"](arg)
-                    if component_arg:
-                        if code.get("default", False):
-                            for deft in code.get("default"):
-                                default.setdefault(deft, {}).update(component_arg)
-                        else:
-                            vals.update(component_arg)
-                        break
-
-            if "graphic_name" in vals:
-                graphic = graphics.get(vals.pop("graphic_name"))
-                if not graphic:
-                    _logger.warning("Recalled graphic not found in the ZPL data")
-                    continue
-                vals.update(graphic)
-                vals[zpl2.ARG_WIDTH] *= vals.pop("magnification_x", 1)
-                vals[zpl2.ARG_HEIGHT] *= vals.pop("magnification_y", 1)
-
+            vals = self._parse_field(field, default, report, i)
+            if "graphic_name" in vals and not self._recall_graphic(
+                vals, graphics, report, i
+            ):
+                continue
             if vals:
-                if "component_type" not in vals.keys():
-                    vals.update({"component_type": "text"})
+                self._create_component(vals, default, sequence + i * 10)
 
-                if "data" in vals:
-                    # The data is a Python expression: a string literal
-                    text = vals["data"]
-                    if vals.get(zpl2.ARG_IN_BLOCK):
-                        # \& breaks the line in a block
-                        text = text.replace("\\&", "\n")
-                    vals["data"] = repr(text)
+        self.write({"state": "done", "report": report.text()})
+        return {
+            "name": self.env._("Import ZPL2"),
+            "type": "ir.actions.act_window",
+            "res_model": self._name,
+            "res_id": self.id,
+            "view_mode": "form",
+            "target": "new",
+        }
 
-                # The arguments of the field override the defaults, but the
-                # omitted ones (empty) do not
-                vals = {
-                    **default.get(vals["component_type"], {}),
-                    **{key: value for key, value in vals.items() if value != ""},
-                }
+    def _parse_field(self, field, default, report, index):
+        """Parse the commands of a field: the component values, the defaults
+        (^CF, ^BY, ^FW) for the next fields, and the report of what could
+        not be imported"""
+        vals = {}
+        unknown = []
+        for arg in re.split(r"[\^\r\n]", field):
+            for _key, code in SUPPORTED_CODE.items():
+                component_arg = code["method"](arg)
+                if component_arg:
+                    if code.get("default", False):
+                        for deft in code.get("default"):
+                            default.setdefault(deft, {}).update(component_arg)
+                    else:
+                        vals.update(component_arg)
+                    break
+            else:
+                command = _command(arg)
+                if command and command not in IGNORED_COMMANDS:
+                    unknown.append(command)
 
-                vals = self._update_vals(vals)
-
-                seq = sequence + i * 10
-                vals.update(
-                    {
-                        "name": self.env._("Import %s", seq),
-                        "sequence": seq,
-                        "model": str(zpl2.MODEL_ENHANCED),
-                        "label_id": self.label_id.id,
-                    }
+        position = report.position(vals, index)
+        for command in unknown:
+            report.unknown_commands.setdefault(command, []).append(position)
+        if "scalable_font" in vals:
+            report.warnings.append(
+                self.env._(
+                    "Scalable font %(font)s replaced by the default font "
+                    "(field at %(position)s)",
+                    font=vals.pop("scalable_font"),
+                    position=position,
                 )
-                Zpl2Component.create(vals)
+            )
+        return vals
+
+    def _recall_graphic(self, vals, graphics, report, index):
+        """Set the recalled graphic (^XG, ^IM) on the component values, or
+        report it missing"""
+        name = vals.pop("graphic_name")
+        graphic = graphics.get(name)
+        if not graphic:
+            report.warnings.append(
+                self.env._(
+                    "Graphic %(name)s not found, field at %(position)s not imported",
+                    name=name,
+                    position=report.position(vals, index),
+                )
+            )
+            return False
+        vals.update(graphic)
+        vals[zpl2.ARG_WIDTH] *= vals.pop("magnification_x", 1)
+        vals[zpl2.ARG_HEIGHT] *= vals.pop("magnification_y", 1)
+        return True
+
+    def _create_component(self, vals, default, sequence):
+        if "component_type" not in vals.keys():
+            vals.update({"component_type": "text"})
+
+        if "data" in vals:
+            # The data is a Python expression: a string literal
+            text = vals["data"]
+            if vals.get(zpl2.ARG_IN_BLOCK):
+                # \& breaks the line in a block
+                text = text.replace("\\&", "\n")
+            vals["data"] = repr(text)
+
+        # The arguments of the field override the defaults, but the omitted
+        # ones (empty) do not
+        vals = {
+            **default.get(vals["component_type"], {}),
+            **{key: value for key, value in vals.items() if value != ""},
+        }
+
+        vals = self._update_vals(vals)
+        vals.update(
+            {
+                "name": self.env._("Import %s", sequence),
+                "sequence": sequence,
+                "model": str(zpl2.MODEL_ENHANCED),
+                "label_id": self.label_id.id,
+            }
+        )
+        return self.env["printing.label.zpl2.component"].create(vals)
 
     def _import_label_settings(self, data):
         """Set the label home (^LH) and print width (^PW) on the label"""
