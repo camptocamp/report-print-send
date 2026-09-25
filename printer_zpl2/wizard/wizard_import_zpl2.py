@@ -674,6 +674,7 @@ class WizardImportZPl2(models.TransientModel):
         # new field at each field origin (^FO, ^FT) when the separator is
         # missing.
         data = data.replace("\x0f", "^FS")
+        vals_list = []
         for i, field in enumerate(re.split(r"\^FS|(?=\^F[OT])", data)):
             vals = self._parse_field(field, default, report, i)
             if "graphic_name" in vals and not self._recall_graphic(
@@ -681,7 +682,10 @@ class WizardImportZPl2(models.TransientModel):
             ):
                 continue
             if vals:
-                self._create_component(vals, default, sequence + i * 10)
+                vals_list.append(
+                    self._prepare_component_vals(vals, default, sequence + i * 10)
+                )
+        self.env["printing.label.zpl2.component"].create(vals_list)
 
         self.write({"state": "done", "report": report.text()})
         return {
@@ -747,7 +751,7 @@ class WizardImportZPl2(models.TransientModel):
         vals[zpl2.ARG_HEIGHT] *= vals.pop("magnification_y", 1)
         return True
 
-    def _create_component(self, vals, default, sequence):
+    def _prepare_component_vals(self, vals, default, sequence):
         if "component_type" not in vals.keys():
             vals.update({"component_type": "text"})
 
@@ -775,7 +779,7 @@ class WizardImportZPl2(models.TransientModel):
                 "label_id": self.label_id.id,
             }
         )
-        return self.env["printing.label.zpl2.component"].create(vals)
+        return vals
 
     def _import_label_settings(self, data):
         """Set the label home (^LH) and print width (^PW) on the label"""
